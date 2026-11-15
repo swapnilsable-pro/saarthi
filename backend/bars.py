@@ -56,6 +56,36 @@ def live_dir(day: dt.date) -> Path:
     return d
 
 
+def _yahoo_get(path: str) -> str:
+    """The same Yahoo chart request nsedata.yahoo_get makes, sent with a browser's TLS handshake.
+
+    Yahoo answers Python's own HTTP client with 429 based on how it connects, not on how often,
+    so nsedata.yahoo_get looks rate-limited from most machines. curl_cffi (installed with yfinance)
+    connects the way a browser does. Same hosts, same path, same JSON. A real 429 still raises the
+    repo's ThrottledError, which the scan treats as its stop signal. Falls back to the repo's
+    fetcher if curl_cffi is missing.
+    """
+    try:
+        from curl_cffi import requests as cr
+    except ImportError:
+        return nsedata.yahoo_get(path)
+    last = None
+    for host in nsedata.YAHOO_HOSTS:
+        try:
+            r = cr.get(host + path, impersonate="chrome", timeout=30)
+        except Exception as e:  # network trouble: try the other host
+            last = e
+            continue
+        if r.status_code == 200:
+            return r.text
+        last = r.status_code
+        if r.status_code not in (429,) and r.status_code < 500:
+            raise nsedata.DataError(f"Yahoo answered HTTP {r.status_code} for {path}")
+    if last == 429:
+        raise nsedata.ThrottledError("Yahoo has rate limited this IP (429 on both hosts). Wait, then scan again.")
+    raise nsedata.DataError(f"could not reach Yahoo for {path}: {last}")
+
+
 def ensure_live(sym: str, day: dt.date, *, force: bool = False) -> Path:
     """Fetch (or reuse) the 60-session 5-minute chart for sym via nse-trader-skill's fetcher."""
     d = live_dir(day)
@@ -64,7 +94,7 @@ def ensure_live(sym: str, day: dt.date, *, force: bool = False) -> Path:
     session_over = day < clock.ist_now().date()
     if p60.exists() and (fresh or session_over) and not force:
         return d
-    text = nsedata.yahoo_get(nsedata.chart_path(sym, "60d", "5m"))
+    text = _yahoo_get(nsedata.chart_path(sym, "60d", "5m"))
     p60.write_text(text)
     shutil.copyfile(p60, d / _name(sym, "1d"))     # scan.py orb --offline reads the -1d- name
     return d
