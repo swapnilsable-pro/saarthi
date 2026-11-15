@@ -17,6 +17,9 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-install-project
 COPY backend/ backend/
 COPY vendor/ vendor/
+# The two trading repos are git submodules; a clone without --recurse-submodules leaves them empty.
+RUN test -f vendor/nse-trader-skill/nse-common/nsecal.py && test -f vendor/claude-trading-skills-india/LICENSE \
+ || { echo "vendor/ is empty: run 'git submodule update --init --recursive' and build again" >&2; exit 1; }
 COPY --from=web /app/web/dist web/dist
 ENV SAARTHI_DB=/app/data/saarthi.db PYTHONDONTWRITEBYTECODE=1
 VOLUME ["/app/data"]
