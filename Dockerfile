@@ -3,15 +3,18 @@
 FROM node:22-slim AS web
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY web/ ./
 RUN npm run build
 
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /usr/local/bin/uv
 WORKDIR /app
+# Tolerate slow or flaky connections while downloading packages. The cache mount keeps what was
+# already downloaded, so a build that fails mid-download resumes instead of starting over.
+ENV UV_HTTP_TIMEOUT=180 UV_HTTP_RETRIES=8 UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock .python-version ./
-RUN uv sync --locked --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-install-project
 COPY backend/ backend/
 COPY vendor/ vendor/
 COPY --from=web /app/web/dist web/dist
