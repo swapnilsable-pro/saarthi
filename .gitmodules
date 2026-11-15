@@ -1,0 +1,6 @@
+[submodule "vendor/nse-trader-skill"]
+	path = vendor/nse-trader-skill
+	url = https://github.com/ogmanojdev/nse-trader-skill
+[submodule "vendor/claude-trading-skills-india"]
+	path = vendor/claude-trading-skills-india
+	url = https://github.com/Shubhamkumartrichy/claude-trading-skills-india

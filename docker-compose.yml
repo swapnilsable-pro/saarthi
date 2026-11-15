@@ -1,0 +1,11 @@
+# docker compose up --build   ->   http://localhost:8000
+services:
+  saarthi:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]       # bound to this machine only
+    volumes: ["saarthi-data:/app/data"]  # ledger, bar store and caches survive restarts
+    environment:
+      SAARTHI_SCHEDULER: "1"             # live evening scan, pre-market brief, intraday ORB ticks
+      SAARTHI_NARRATOR: "0"              # set to 1 (and pass ANTHROPIC_API_KEY) for the optional Claude narrator
+volumes:
+  saarthi-data:

@@ -1,0 +1,31 @@
+[project]
+name = "saarthi"
+version = "0.1.0"
+description = "Paper-only NSE trade cockpit built on nse-trader-skill and claude-trading-skills-india"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.9",
+  "pyyaml>=6.0",
+  "yfinance>=0.2.50",
+  "anthropic>=1.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "httpx>=0.27",
+  "hypothesis>=6.100",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.uv]
+package = false

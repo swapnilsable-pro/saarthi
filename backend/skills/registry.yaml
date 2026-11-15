@@ -1,0 +1,343 @@
+# Saarthi tool registry: the only place the backend learns which repo tools exist.
+#
+# Each entry:
+#   id            stable id used by the API and the ledger
+#   repo          nse | india  (vendor/nse-trader-skill | vendor/claude-trading-skills-india)
+#   script        path inside the repo
+#   command       subcommand words placed right after the script ([] if none)
+#   role          what Saarthi uses it for (see IMPLEMENTATION_PLAN.md §2)
+#   json          the tool's JSON flag, appended by the runner (null if none)
+#   no_write      the tool accepts --no-write (appended by the runner)
+#   time_flag     how to run "as of" a moment: {flag, format}; format is a strftime pattern
+#                 applied to the IST datetime. null => not point-in-time capable.
+#   network       true if a live run fetches from the internet
+#   timeout       seconds
+#   smoke         offline invocation using the repo's own test fixtures; {nse_fx} and
+#                 {india_fx} expand to the fixture directories. Used by /api/smoke and CI.
+#   smoke_as_of   the IST moment the smoke run pretends it is (fixture data is from Oct-Nov 2026)
+#
+# Excluded on purpose: the India repo's broker-integration skill (live brokers) and any
+# MCP broker connector. See IMPLEMENTATION_PLAN.md §10.
+
+repos:
+  nse:
+    path: vendor/nse-trader-skill
+    fixtures: vendor/nse-trader-skill/tests/fixtures
+    min_python: "3.8"
+  india:
+    path: vendor/claude-trading-skills-india
+    fixtures: vendor/claude-trading-skills-india/tests/fixtures
+    min_python: "3.10"
+
+tools:
+  # ---------------------------------------------------------------- nse-trader-skill
+  - id: nse.scan.universe
+    repo: nse
+    script: nse-scanner/scan.py
+    command: [universe]
+    role: Tradable universe from EQUITY_L.csv (series EQ, ETFs dropped)
+    json: --json
+    no_write: true
+    time_flag: null
+    network: true
+    timeout: 120
+    smoke: [--offline, "{nse_fx}/nse-scanner/EQUITY_L.csv"]
+
+  - id: nse.scan.daily
+    repo: nse
+    script: nse-scanner/scan.py
+    command: [daily]
+    role: Whole-market daily setups from the bhavcopy ladder, incl. delivery-% surges
+    json: --json
+    no_write: true
+    time_flag: {flag: --now, format: "%Y-%m-%d %H:%M"}
+    network: true
+    timeout: 300
+    smoke: [--offline, "{nse_fx}/nse-scanner", --min-turnover, "0", --show, "5"]
+    smoke_as_of: "2026-11-09 18:30"
+
+  - id: nse.scan.orb
+    repo: nse
+    script: nse-scanner/scan.py
+    command: [orb]
+    role: Opening-range breakouts so far (5-minute closes above the OR high)
+    json: --json
+    no_write: true
+    time_flag: {flag: --now, format: "%Y-%m-%d %H:%M"}
+    network: true
+    timeout: 300
+    smoke: [--offline, "{nse_fx}/nse-scanner", --symbols, TCS]
+    smoke_as_of: "2026-11-09 15:30"
+
+  - id: nse.scan.bands
+    repo: nse
+    script: nse-scanner/scan.py
+    command: [bands]
+    role: Price bands and ASM surveillance (stops that cannot fill)
+    json: --json
+    no_write: true
+    time_flag: null
+    network: true
+    timeout: 120
+    smoke: [--offline, "{nse_fx}/nse-scanner"]
+
+  - id: nse.news.announcements
+    repo: nse
+    script: nse-news/news.py
+    command: [announcements]
+    role: NSE corporate announcements feed (date-ranged), tagged by catalyst
+    json: --json
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 180
+    smoke: [--offline, "{nse_fx}/nse-news", --hours, "8760", --no-state, --all]
+
+  - id: nse.timemachine.run
+    repo: nse
+    script: nse-timemachine/timemachine.py
+    command: [run]
+    role: 10,000-session bootstrap + history replay; odds and net expectancy after costs
+    json: --json
+    no_write: true
+    time_flag: {flag: --now, format: "%Y-%m-%d %H:%M"}
+    network: true
+    timeout: 300
+    smoke: [--offline, "{nse_fx}/nse-timemachine", --symbol, DEMO, --entry, "1324.40",
+            --stop, "1318.50", --target, "1330.30", --qty, "100", --at, "10:00",
+            --trials, "400", --seed, "19"]
+    smoke_as_of: "2026-11-10 10:00"
+
+  - id: nse.alerts.check
+    repo: nse
+    script: nse-alerts/alerts.py
+    command: [check]
+    role: Ring stop / target / 15:15 square-off alerts (calendar aware)
+    json: --json
+    no_write: true
+    time_flag: {flag: --now, format: "%Y-%m-%d %H:%M"}
+    network: true
+    timeout: 120
+    smoke: [--no-fetch]
+    smoke_as_of: "2026-11-09 15:16"
+
+  - id: nse.analyst.facts
+    repo: nse
+    script: nse-analyst/facts.py
+    command: []
+    role: Filed quarterly results (lakh -> crore, unit-checked)
+    json: --json
+    no_write: true
+    time_flag: null
+    network: true
+    timeout: 180
+    smoke: [RELIANCE, --offline, "{nse_fx}/nse-analyst", --quarters, "4"]
+
+  - id: nse.analyst.calendar
+    repo: nse
+    script: nse-analyst/facts.py
+    command: [--calendar]
+    role: Results calendar from board-meeting intimations (avoid trading into results)
+    json: --json
+    no_write: true
+    time_flag: null
+    network: true
+    timeout: 180
+    smoke: [--offline, "{nse_fx}/nse-analyst", --back, "3650", --show, "3"]
+
+  - id: nse.deals
+    repo: nse
+    script: nse-deals/deals.py
+    command: []
+    role: Bulk and block deals, named buyers and sellers
+    json: --json
+    no_write: true
+    time_flag: null
+    network: true
+    timeout: 120
+    smoke: [--offline, "{nse_fx}/nse-deals", --show, "4"]
+
+  # ------------------------------------------------------ claude-trading-skills-india
+  - id: india.regime.status
+    repo: india
+    script: skills/market-regime/scripts/regime.py
+    command: [status]
+    role: Market mood - trend, distribution days, follow-through, exposure ceiling
+    json: --json
+    no_write: false
+    time_flag: {flag: --as-of, format: "%Y-%m-%d"}
+    network: true
+    timeout: 120
+    smoke: [--csv, "{india_fx}/regime_novolume.csv", --volume-csv, "{india_fx}/regime_proxy_volume.csv"]
+
+  - id: india.breadth.status
+    repo: india
+    script: skills/market-breadth/scripts/breadth.py
+    command: [status]
+    role: Advance/decline participation behind the index move
+    json: --json
+    no_write: false
+    time_flag: {flag: --as-of, format: "%Y-%m-%d"}
+    network: true
+    timeout: 120
+    smoke: [--ad-csv, "{india_fx}/breadth_ad.csv"]
+
+  - id: india.sectors.rotation
+    repo: india
+    script: skills/sector-rotation/scripts/sectors.py
+    command: [rotation]
+    role: Sector relative strength vs NIFTY 50
+    json: --json
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 180
+    smoke: [--csv-dir, "{india_fx}/sector_indices"]
+
+  - id: india.events.range
+    repo: india
+    script: skills/event-calendar/scripts/events.py
+    command: [range]
+    role: RBI / Fed / CPI / results / expiry dates in a window (event-risk gate)
+    json: --json
+    no_write: false
+    time_flag: {flag: --today, format: "%Y-%m-%d"}
+    network: false
+    timeout: 60
+    smoke: [--from, "2026-11-01", --to, "2027-02-28", --category, rbi]
+    smoke_as_of: "2026-11-13 09:00"
+
+  - id: india.ta.summary
+    repo: india
+    script: skills/technical-analysis/scripts/ta.py
+    command: [summary]
+    role: Levels, pivots and indicator dashboard
+    json: --json
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 120
+    smoke: [--csv, "{india_fx}/backtest_trend.csv"]
+
+  - id: india.momentum.burst
+    repo: india
+    script: skills/momentum-scanner/scripts/momentum.py
+    command: [burst]
+    role: Momentum bursts / news gaps across a universe
+    json: --json
+    no_write: false
+    time_flag: {flag: --as-of, format: "%Y-%m-%d"}
+    network: true
+    timeout: 300
+    smoke: [--csv-dir, "{india_fx}/momentum_universe"]
+
+  - id: india.exhaustion.climax
+    repo: india
+    script: skills/exhaustion-reversal/scripts/exhaustion.py
+    command: [climax]
+    role: Buying/selling climax warning (exhaustion gate G6)
+    json: --json
+    no_write: false
+    time_flag: {flag: --as-of, format: "%Y-%m-%d"}
+    network: true
+    timeout: 300
+    smoke: [--csv-dir, "{india_fx}/exhaustion_universe", --bands, "{india_fx}/exhaustion_bands.csv"]
+
+  - id: india.breakout.plan
+    repo: india
+    script: skills/breakout-planner/scripts/breakout.py
+    command: [plan]
+    role: Swing entry/stop/size/order plan on tick and band
+    json: --json
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 180
+    smoke: [--csv, "{india_fx}/breakout_stk_vcp.csv", --capital, "500000", --band, "10"]
+
+  - id: india.risk.size
+    repo: india
+    script: skills/position-sizing/scripts/risk.py
+    command: [size]
+    role: Position size from capital, risk %, entry and stop
+    json: --json
+    no_write: false
+    time_flag: null
+    network: false
+    timeout: 30
+    smoke: [--capital, "200000", --risk-pct, "0.5", --entry, "912.35", --stop, "905.10",
+            --cost-pct, "0.05"]
+
+  - id: india.risk.rr
+    repo: india
+    script: skills/position-sizing/scripts/risk.py
+    command: [rr]
+    role: Reward:risk and expectancy, net of a cost %
+    json: --json
+    no_write: false
+    time_flag: null
+    network: false
+    timeout: 30
+    smoke: [--entry, "912.35", --stop, "905.10", --target, "923.20", --win-rate, "55",
+            --cost-pct, "0.05"]
+
+  - id: india.risk.trail
+    repo: india
+    script: skills/position-sizing/scripts/risk.py
+    command: [trail]
+    role: Trailing-stop ladder
+    json: --json
+    no_write: false
+    time_flag: null
+    network: false
+    timeout: 30
+    smoke: [--entry, "912.35", --stop, "905.10", --highest-close, "925.00"]
+
+  - id: india.costs.charges
+    repo: india
+    script: skills/trading-costs/scripts/charges.py
+    command: []
+    role: Broker charges comparison (cross-check for nse-common/charges.py)
+    json: --json
+    no_write: false
+    time_flag: null
+    network: false
+    timeout: 30
+    smoke: [--segment, intraday, --buy, "912.35", --sell, "923.20", --qty, "120",
+            --broker, zerodha]
+
+  - id: india.backtest.run
+    repo: india
+    script: skills/backtest-lab/scripts/backtest.py
+    command: [run]
+    role: Swing setup history with Indian costs
+    json: --json
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 300
+    smoke: [--csv, "{india_fx}/backtest_trend.csv", --strategy, sma-cross]
+
+  - id: india.breakout.scan
+    repo: india
+    script: skills/breakout-planner/scripts/breakout.py
+    command: [scan]
+    role: Stage-2 / VCP base scan across a folder of daily CSVs (swing candidates)
+    json: --json
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 300
+    smoke: [--csv-dir, "{india_fx}", --pattern, "breakout_stk_*.csv", --benchmark-csv, "{india_fx}/breakout_bench_nifty.csv"]
+
+  - id: india.ta.fetch
+    repo: india
+    script: skills/technical-analysis/scripts/ta.py
+    command: [fetch]
+    role: Download daily OHLCV to CSV via yfinance (the repo's documented data path)
+    json: null
+    no_write: false
+    time_flag: null
+    network: true
+    timeout: 120
+    smoke: [--help]

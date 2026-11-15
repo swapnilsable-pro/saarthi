@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/* Design tokens. Colour is reserved for verdicts and P&L; everything else is neutral. */
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel-2: #f1f3f6;
+  --line: #e3e6eb;
+  --text: #17191c;
+  --muted: #5d6673;
+  --faint: #8a93a0;
+  --accent: #0f766e;
+  --accent-soft: #e6f4f2;
+  --go: #15803d;
+  --go-soft: #e8f6ec;
+  --caution: #b45309;
+  --caution-soft: #fdf3e4;
+  --stop: #b91c1c;
+  --stop-soft: #fdecec;
+  --paper: #6d28d9;
+  --paper-soft: #f1ebfd;
+  /* Charts: P&L is polarity -> the validated diverging pair (blue gain / red loss, gray midpoint),
+     never the green/red status colors. Validated with dataviz validate_palette.js on these surfaces. */
+  --viz-pos: #2a78d6;
+  --viz-neg: #e34948;
+  --viz-mid: #f0efec;
+  --viz-line: #2a78d6;
+  --viz-grid: #e9ebef;
+  --viz-ref: #8a93a0;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1013;
+    --panel: #15181c;
+    --panel-2: #1b1f24;
+    --line: #2a2f36;
+    --text: #e8eaed;
+    --muted: #a0a8b3;
+    --faint: #737c88;
+    --accent: #2dd4bf;
+    --accent-soft: #0f2a28;
+    --go: #4ade80;
+    --go-soft: #10261a;
+    --caution: #fbbf24;
+    --caution-soft: #2a2010;
+    --stop: #f87171;
+    --stop-soft: #2c1414;
+    --paper: #a78bfa;
+    --paper-soft: #1f1835;
+    --viz-pos: #3987e5;
+    --viz-neg: #e66767;
+    --viz-mid: #383835;
+    --viz-line: #3987e5;
+    --viz-grid: #23272d;
+    --viz-ref: #737c88;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1013;
+  --panel: #15181c;
+  --panel-2: #1b1f24;
+  --line: #2a2f36;
+  --text: #e8eaed;
+  --muted: #a0a8b3;
+  --faint: #737c88;
+  --accent: #2dd4bf;
+  --accent-soft: #0f2a28;
+  --go: #4ade80;
+  --go-soft: #10261a;
+  --caution: #fbbf24;
+  --caution-soft: #2a2010;
+  --stop: #f87171;
+  --stop-soft: #2c1414;
+  --paper: #a78bfa;
+  --paper-soft: #1f1835;
+  --viz-pos: #3987e5;
+  --viz-neg: #e66767;
+  --viz-mid: #383835;
+  --viz-line: #3987e5;
+  --viz-grid: #23272d;
+  --viz-ref: #737c88;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-go: var(--go);
+  --color-go-soft: var(--go-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-stop: var(--stop);
+  --color-stop-soft: var(--stop-soft);
+  --color-paper: var(--paper);
+  --color-paper-soft: var(--paper-soft);
+  --color-viz-pos: var(--viz-pos);
+  --color-viz-neg: var(--viz-neg);
+  --color-viz-mid: var(--viz-mid);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
